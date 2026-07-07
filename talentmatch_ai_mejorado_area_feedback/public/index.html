@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TalentMatch AI | Plataforma inteligente de reclutamiento</title>
+  <meta name="description" content="Plataforma de reclutamiento con análisis de CVs, entrevistas y habilidades blandas mediante IA." />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <div class="brand-icon">AI</div>
+        <div>
+          <strong>TalentMatch</strong>
+          <span>Recruitment Intelligence</span>
+        </div>
+      </div>
+
+      <nav class="nav" id="mainNav">
+        <button data-view="dashboard" class="active"><span>◈</span> Panel ejecutivo</button>
+        <button data-view="jobs"><span>▣</span> Ofertas</button>
+        <button data-view="candidates"><span>◎</span> Candidatos</button>
+        <button data-view="ranking"><span>▲</span> Ranking IA</button>
+        <button data-view="reports"><span>◍</span> Reportes</button>
+        <button data-view="settings"><span>⚙</span> Configuración</button>
+      </nav>
+
+      <div class="sidebar-card">
+        <p class="label">Sesión</p>
+        <strong id="sessionName">No conectado</strong>
+        <span id="sessionRole">Ingrese para continuar</span>
+        <button class="ghost" id="logoutBtn">Cerrar sesión</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <button class="mobile-menu" id="menuBtn">☰</button>
+        <div>
+          <p class="eyebrow">Producto funcional</p>
+          <h1 id="viewTitle">Panel ejecutivo</h1>
+        </div>
+        <div class="top-actions">
+          <button class="secondary" id="themeBtn">Modo oscuro</button>
+          <a class="primary" href="/api/reports/export-csv" id="csvLink">Exportar CSV</a>
+        </div>
+      </header>
+
+      <section class="login-panel" id="loginPanel">
+        <div class="login-art">
+          <div class="orb orb-a"></div>
+          <div class="orb orb-b"></div>
+          <div class="login-card-art">
+            <span class="chip">IA explicable</span>
+            <h2>Reclutamiento inteligente para decisiones medibles</h2>
+            <p>Analiza CVs, entrevistas asincrónicas, habilidades blandas y compatibilidad con el puesto desde una plataforma segura y trazable.</p>
+          </div>
+        </div>
+        <form class="login-form" id="loginForm">
+          <p class="eyebrow">Acceso autorizado</p>
+          <h2>Iniciar sesión</h2>
+          <label>Correo</label>
+          <input type="email" name="email" placeholder="correo corporativo" autocomplete="username" required />
+          <label>Contraseña</label>
+          <input type="password" name="password" placeholder="contraseña" autocomplete="current-password" required />
+          <button class="primary full" type="submit">Ingresar</button>
+          <p class="hint">Acceso exclusivo para personal autorizado.</p>
+          <p class="error" id="loginError"></p>
+        </form>
+        <section class="candidate-portal" id="candidatePortal">
+          <div class="portal-head">
+            <div>
+              <p class="eyebrow">Portal del candidato</p>
+              <h2>Postula a un puesto disponible</h2>
+              <p class="hint">Selecciona una oferta activa, sube tu CV en PDF, DOCX o TXT y completa una breve respuesta de entrevista asincrónica. El sistema registrará tu postulación y generará un análisis inicial.</p>
+            </div>
+            <span class="chip light">Postulación pública</span>
+          </div>
+
+          <div class="grid cols-2 candidate-grid">
+            <div class="card">
+              <div class="toolbar"><h3>Puestos disponibles</h3><span id="publicJobCount" class="hint"></span></div>
+              <div id="publicJobList" class="public-job-list">
+                <p class="hint">Cargando ofertas activas...</p>
+              </div>
+            </div>
+
+            <form class="card" id="publicApplyForm">
+              <h3>Formulario de postulación</h3>
+              <div class="form-grid">
+                <div class="span-2"><label>Puesto al que postula</label><select name="job_id" id="publicJobSelect" required></select></div>
+                <div><label>Nombre completo</label><input name="full_name" placeholder="Nombres y apellidos" required /></div>
+                <div><label>DNI</label><input name="dni" placeholder="8 dígitos" inputmode="numeric" maxlength="8" pattern="\d{8}" required /></div>
+                <div><label>Correo de contacto</label><input name="email" type="email" placeholder="correo@dominio.com" required /></div>
+                <div><label>Teléfono</label><input name="phone" placeholder="Ej. 999 999 999" /></div>
+                <div class="span-2"><label>CV</label><input name="cv_file" type="file" accept=".pdf,.docx,.txt" required /></div>
+                <div class="span-2"><label>Texto adicional del CV</label><textarea name="cv_text" placeholder="Opcional: pega aquí experiencia, tecnologías o logros para reforzar el análisis."></textarea></div>
+                <div class="span-2"><label>Respuesta de entrevista asincrónica</label><textarea name="interview_text" placeholder="Ejemplo: describe una situación donde resolviste un conflicto, lideraste una tarea o trabajaste en equipo."></textarea></div>
+                <div class="span-2 consent-row"><label><input type="checkbox" name="consent" value="1" required /> Acepto el tratamiento de mis datos para fines de evaluación de esta postulación.</label></div>
+              </div>
+              <button class="primary full" type="submit">Enviar postulación</button>
+              <div id="publicApplyResult" class="apply-result hidden"></div>
+            </form>
+          </div>
+
+          <div class="card rank-lookup-card">
+            <div class="portal-head compact">
+              <div>
+                <p class="eyebrow">Consulta de ranking</p>
+                <h3>Verifica tu posición con DNI</h3>
+                <p class="hint">Ingresa el DNI registrado en tu postulación para consultar el puesto que ocupas dentro del ranking de la oferta.</p>
+              </div>
+            </div>
+            <form id="publicRankForm" class="rank-form">
+              <input name="dni" placeholder="Ingrese DNI de 8 dígitos" inputmode="numeric" maxlength="8" pattern="\d{8}" required />
+              <button class="secondary" type="submit">Consultar ranking</button>
+            </form>
+            <div id="publicRankResult" class="rank-result hidden"></div>
+          </div>
+        </section>
+      </section>
+
+      <section class="content hidden" id="appContent">
+        <section class="view" id="view-dashboard"></section>
+        <section class="view hidden" id="view-jobs"></section>
+        <section class="view hidden" id="view-candidates"></section>
+        <section class="view hidden" id="view-ranking"></section>
+        <section class="view hidden" id="view-reports"></section>
+        <section class="view hidden" id="view-settings"></section>
+      </section>
+    </main>
+  </div>
+
+  <div class="modal hidden" id="candidateModal">
+    <div class="modal-content wide">
+      <button class="modal-close" data-close="candidateModal">×</button>
+      <div id="candidateDetail"></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <script src="/app.js"></script>
+</body>
+</html>
