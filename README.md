@@ -1,60 +1,92 @@
-# TalentMatch AI - Producto web funcional
+# TalentMatch AI
 
-Aplicación web full-stack para una plataforma inteligente de reclutamiento que analiza CVs, entrevistas y habilidades blandas mediante un motor de evaluación explicable.
+> Plataforma web inteligente para gestionar procesos de reclutamiento, analizar CV y ordenar postulantes mediante un ranking explicable.
 
-## Funcionalidades incluidas
+![Node.js](https://img.shields.io/badge/Node.js-20.x-339933?style=for-the-badge&logo=node.js&logoColor=white)
+![Express](https://img.shields.io/badge/Express.js-Backend-000000?style=for-the-badge&logo=express&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker&logoColor=white)
+![Render](https://img.shields.io/badge/Deploy-Render-46E3B7?style=for-the-badge&logo=render&logoColor=black)
 
-- Inicio de sesión con roles: administrador, reclutador y auditor.
-- Backend Node.js + Express.
-- Base de datos JSON persistente en servidor.
-- Gestión de ofertas laborales.
-- Ponderación de competencias técnicas y habilidades blandas.
-- Portal público para candidatos con ofertas disponibles.
-- Postulación sin inicio de sesión mediante formulario público.
-- Registro de DNI para trazabilidad de postulación.
-- Consulta pública de posición en ranking mediante DNI.
-- Registro de candidatos desde panel interno o portal público.
-- Carga de CV en TXT, PDF o DOCX.
-- Extracción de texto desde PDF y DOCX mediante librerías locales.
-- Detección de correo, teléfono, experiencia y tecnologías.
-- Análisis de entrevista asincrónica por texto.
-- Ranking de compatibilidad candidato-puesto.
-- Explicación textual de la recomendación IA.
-- Auditoría de sesgos simulada.
-- Reportes ejecutivos.
-- Exportación CSV.
-- Bitácora de auditoría.
-- Interfaz profesional responsive con modo oscuro.
+## Descripcion general
 
-## Credenciales iniciales privadas
+**TalentMatch AI** es una aplicacion web full-stack orientada a procesos de seleccion de personal. Permite publicar ofertas laborales, recibir postulaciones, cargar CV, analizar informacion relevante del candidato y generar un ranking de compatibilidad con explicacion del resultado.
 
-Estas credenciales se mantienen solo en la documentación técnica. No se muestran en la pantalla pública de la aplicación.
+El sistema esta pensado para demostraciones academicas, pilotos controlados y validacion funcional de una solucion de reclutamiento asistida por inteligencia artificial.
 
-Administrador:
+## Modulos principales
+
+| Modulo | Descripcion |
+|---|---|
+| Portal de candidato | Permite revisar ofertas disponibles y postular sin iniciar sesion. |
+| Postulacion con DNI | Registra el DNI del postulante para trazabilidad y consulta posterior. |
+| Carga de CV | Acepta archivos en formato TXT, PDF y DOCX. |
+| Analisis automatico | Extrae datos del CV y evalua experiencia, tecnologias y coincidencias. |
+| Ranking de postulantes | Ordena candidatos segun compatibilidad con cada puesto. |
+| Consulta por DNI | Permite al candidato verificar su posicion en el ranking. |
+| Panel interno | Gestion de ofertas, candidatos, reportes y auditoria. |
+| Exportacion CSV | Genera archivos para revision y sustento de decisiones. |
+
+## Funcionalidades destacadas
+
+- Autenticacion con roles para administrador, reclutador y auditor.
+- Gestion de ofertas laborales y criterios de evaluacion.
+- Registro de competencias tecnicas y habilidades blandas.
+- Portal publico para postulantes.
+- Validacion para evitar postulaciones duplicadas por DNI en una misma oferta.
+- Lectura de CV en PDF, DOCX y TXT.
+- Deteccion de correo, telefono, experiencia y tecnologias.
+- Analisis de entrevista asincronica por texto.
+- Ranking IA con recomendacion explicable.
+- Reportes ejecutivos y bitacora de auditoria.
+- Interfaz responsive con estilo profesional y modo oscuro.
+
+## Tecnologia utilizada
+
+| Componente | Tecnologia |
+|---|---|
+| Backend | Node.js + Express |
+| Frontend | HTML, CSS y JavaScript |
+| Persistencia | Base de datos JSON local |
+| Archivos | Carga local en carpeta `uploads/` |
+| Autenticacion | JWT |
+| Seguridad base | Helmet, CORS y variables de entorno |
+| Despliegue | Docker / Render |
+
+## Estructura del proyecto
 
 ```txt
-correo: admin@talentmatch.ai
-contraseña: Admin2026!
+server.js             Backend, rutas API y motor de analisis
+public/index.html     Interfaz principal
+public/styles.css     Estilos visuales responsive
+public/app.js         Logica del frontend
+data/                 Base de datos JSON
+uploads/              CV cargados por candidatos
+Dockerfile            Configuracion para despliegue con Docker
+render.yaml           Referencia para despliegue en Render
+.env.example          Variables de entorno de ejemplo
+README.md             Documentacion del proyecto
 ```
 
-Reclutador:
+## Instalacion local
 
-```txt
-correo: rrhh@empresa.pe
-contraseña: Recruiter2026!
-```
+### 1. Requisitos
 
-Cambie estas credenciales antes de usar el sistema con información real. No publique estas credenciales en la interfaz, repositorios públicos ni capturas de pantalla.
+- Node.js 18 o superior.
+- npm instalado.
+- Git, si se desea subir el proyecto a GitHub.
 
-## Instalación local
+### 2. Clonar o abrir el proyecto
 
-1. Instale Node.js 18 o superior.
-2. Abra la carpeta del proyecto en una terminal.
-3. Copie el archivo de entorno:
+Si el proyecto ya esta descargado, abre la carpeta donde se encuentran `package.json`, `server.js` y `Dockerfile`.
+
+Si esta en GitHub:
 
 ```bash
-cp .env.example .env
+git clone https://github.com/TU_USUARIO/talentmatch-ai.git
+cd talentmatch-ai
 ```
+
+### 3. Configurar variables de entorno
 
 En Windows PowerShell:
 
@@ -62,98 +94,128 @@ En Windows PowerShell:
 copy .env.example .env
 ```
 
-4. Instale dependencias:
+En Linux/macOS:
+
+```bash
+cp .env.example .env
+```
+
+Edita el archivo `.env` y define una clave segura:
+
+```env
+NODE_ENV=development
+JWT_SECRET=coloca_una_clave_segura_y_larga
+DB_PATH=./data/talentmatch.json
+UPLOAD_DIR=./uploads
+```
+
+### 4. Instalar dependencias
 
 ```bash
 npm install
 ```
 
-5. Ejecute la aplicación:
+### 5. Ejecutar la aplicacion
 
 ```bash
 npm start
 ```
 
-6. Abra el navegador en:
+Luego abre:
 
 ```txt
 http://localhost:3000
 ```
 
-## Despliegue en dominio
+## Despliegue en Render
 
-Esta aplicación necesita hosting con soporte Node.js. No es solo HTML estático.
+Esta aplicacion requiere un servicio con soporte **Node.js**. No debe publicarse como sitio estatico, porque utiliza backend, autenticacion, carga de archivos y persistencia de datos.
 
-Opciones recomendadas:
+### Opcion recomendada: Render con Docker
 
-- Render
-- Railway
-- Fly.io
-- VPS propio
-- cPanel con Node.js App
-- Docker en servidor propio
+En Render, crea un **Web Service** conectado a tu repositorio de GitHub.
 
-### Despliegue rápido en Render
-
-1. Suba este proyecto a un repositorio de GitHub.
-2. Cree un servicio Web en Render.
-3. Configure:
+Configuracion sugerida:
 
 ```txt
-Build command: npm install
-Start command: npm start
+Source: repositorio de GitHub
+Branch: main
+Root Directory: vacio, si package.json esta en la raiz
+Dockerfile Path: ./Dockerfile
+Docker Build Context Directory: .
 ```
 
-4. Agregue las variables de entorno:
+Variables de entorno:
 
 ```txt
 NODE_ENV=production
-JWT_SECRET=una_clave_segura_larga
+JWT_SECRET=coloca_una_clave_segura_y_larga
 DB_PATH=./data/talentmatch.json
 UPLOAD_DIR=./uploads
 ```
 
-5. Publique el servicio y apunte su dominio personalizado desde DNS.
+No agregues manualmente `PORT`, porque Render lo asigna automaticamente.
 
-## Uso operativo
+### Archivo `.dockerignore`
 
-1. Inicie sesión como administrador.
-2. Registre ofertas laborales y defina competencias técnicas y blandas.
-3. Registre candidatos y cargue su CV.
-4. Pegue o cargue contenido curricular para mejorar el análisis.
-5. Agregue respuestas de entrevista asincrónica.
-6. Para postular como candidato, ingrese a la pantalla inicial sin iniciar sesión, seleccione un puesto disponible, registre su DNI, cargue el CV y envíe el formulario público.
-7. El candidato puede consultar su posición en el ranking ingresando el DNI usado en la postulación.
-8. Revise ranking IA, explicación, reportes y auditoría desde el panel de administrador o reclutador.
-9. Exporte CSV para sustentar decisiones.
+Para evitar errores de dependencias incompletas en Render, el proyecto debe incluir un archivo `.dockerignore` con este contenido:
 
-## Alcance real del producto
+```dockerignore
+node_modules
+npm-debug.log
+.git
+.env
+uploads
+```
 
-Esta entrega es funcional para uso académico, demostración y piloto controlado. Incluye backend, base de datos, autenticación, formularios, análisis automático y reportes.
-
-Para uso empresarial con datos sensibles se recomienda agregar:
-
-- HTTPS obligatorio en producción.
-- Políticas de contraseña robustas.
-- Recuperación de contraseña por correo.
-- Almacenamiento cloud cifrado para archivos.
-- Base de datos PostgreSQL administrada.
-- Copias de seguridad automáticas.
-- Consentimiento informado para candidatos.
-- Términos de tratamiento de datos personales.
-- Modelos de IA certificados o API de IA externa.
-- Revisión legal para Ley N.° 29733 y GDPR.
-
-## Estructura
+Despues de subir cambios a GitHub, en Render usa:
 
 ```txt
-server.js             Backend, rutas API y motor de análisis
-public/index.html     Interfaz principal
-public/styles.css     Estilos profesionales responsive
-public/app.js         Lógica frontend
-data/                 Base de datos JSON generada automáticamente
-uploads/              Archivos CV cargados
-Dockerfile            Despliegue con Docker
-render.yaml           Referencia de despliegue en Render
-.env.example          Variables de entorno
+Manual Deploy -> Clear build cache & deploy
 ```
+
+## Uso del sistema
+
+### Para candidatos
+
+1. Ingresar al portal publico.
+2. Revisar las ofertas disponibles.
+3. Seleccionar un puesto.
+4. Completar los datos personales, incluido el DNI.
+5. Cargar el CV en PDF, DOCX o TXT.
+6. Enviar la postulacion.
+7. Consultar posteriormente la posicion en el ranking usando el DNI registrado.
+
+### Para reclutadores o administradores
+
+1. Iniciar sesion desde el panel interno.
+2. Crear o actualizar ofertas laborales.
+3. Revisar postulantes registrados.
+4. Analizar el ranking de compatibilidad.
+5. Revisar la explicacion del resultado.
+6. Exportar reportes CSV para sustento del proceso.
+
+## Seguridad y privacidad
+
+Las credenciales de demostracion no deben publicarse en la pantalla inicial, capturas, videos ni repositorios publicos. Para una presentacion academica o piloto privado, las credenciales deben compartirse por un canal interno.
+
+Antes de usar el sistema con informacion real de candidatos, se recomienda implementar:
+
+- HTTPS obligatorio.
+- Recuperacion segura de contrasena.
+- Politicas de contrasena robustas.
+- Base de datos persistente como PostgreSQL.
+- Almacenamiento cifrado para CV.
+- Copias de seguridad automaticas.
+- Consentimiento informado para postulantes.
+- Revision legal sobre tratamiento de datos personales.
+
+## Alcance actual
+
+Esta version esta lista para demostracion academica, piloto funcional y validacion controlada. Incluye backend, frontend, autenticacion, gestion de ofertas, carga de CV, analisis automatico, ranking de candidatos, consulta por DNI, reportes y auditoria.
+
+Para operacion empresarial, se recomienda migrar la persistencia JSON a una base de datos administrada, reforzar la seguridad y formalizar el tratamiento legal de datos personales.
+
+## Autoria
+
+Proyecto desarrollado como solucion web para procesos de seleccion asistidos por analisis inteligente de postulantes.
