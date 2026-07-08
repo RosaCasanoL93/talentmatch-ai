@@ -45,6 +45,37 @@ function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>'"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'": '&#39;', '"': '&quot;' }[c]));
 }
 
+function uniqueAreas(rows) {
+  return [...new Set(rows.map(j => String(j.area || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+}
+
+function feedbackBlock(feedback = {}) {
+  const tech = feedback.technical_to_improve || [];
+  const soft = feedback.soft_to_improve || [];
+  const techTips = feedback.technical_suggestions || [];
+  const softTips = feedback.soft_suggestions || [];
+  return `
+    <div class="feedback-panel">
+      <div>
+        <p class="eyebrow">Feedback formativo</p>
+        <h4>Recomendaciones para fortalecer tu perfil</h4>
+        <p class="hint">${escapeHtml(feedback.summary || 'El sistema generó recomendaciones iniciales con base en el puesto y la información registrada.')}</p>
+      </div>
+      <div class="grid cols-2 feedback-grid">
+        <div class="feedback-card">
+          <h5>Competencias técnicas</h5>
+          <div class="tags">${tech.length ? tech.map(s => `<span class="tag warning-tag">${escapeHtml(s)}</span>`).join('') : '<span class="tag success-tag">Sin brechas críticas detectadas</span>'}</div>
+          <ul>${techTips.slice(0,4).map(t => `<li>${escapeHtml(t)}</li>`).join('')}</ul>
+        </div>
+        <div class="feedback-card">
+          <h5>Habilidades blandas</h5>
+          <div class="tags">${soft.length ? soft.map(s => `<span class="tag warning-tag">${escapeHtml(s)}</span>`).join('') : '<span class="tag success-tag">Evidencia aceptable</span>'}</div>
+          <ul>${softTips.slice(0,4).map(t => `<li>${escapeHtml(t)}</li>`).join('')}</ul>
+        </div>
+      </div>
+    </div>`;
+}
+
 function maskDni(dni) {
   const clean = String(dni || '').replace(/\D/g, '');
   return clean.length >= 8 ? `${clean.slice(0,2)}****${clean.slice(-2)}` : 'no registrado';
@@ -136,18 +167,25 @@ async function renderPublicPortal() {
   const form = $('#publicApplyForm');
   if (!list || !select || !form) return;
   state.publicJobs = await publicApi('/api/public/jobs');
+  const areas = uniqueAreas(state.publicJobs);
   $('#publicJobCount').textContent = `${state.publicJobs.length} activas`;
+  const toolbar = list.closest('.card')?.querySelector('.toolbar');
+  if (toolbar && !$('#publicAreaFilter')) {
+    toolbar.insertAdjacentHTML('beforeend', `
+      <select id="publicAreaFilter" class="compact-select" aria-label="Filtrar por área">
+        <option value="">Todas las áreas</option>
+        ${areas.map(area => `<option value="${escapeHtml(area)}">${escapeHtml(area)}</option>`).join('')}
+      </select>`);
+  } else if ($('#publicAreaFilter')) {
+    $('#publicAreaFilter').innerHTML = `<option value="">Todas las áreas</option>${areas.map(area => `<option value="${escapeHtml(area)}">${escapeHtml(area)}</option>`).join('')}`;
+  }
   select.innerHTML = state.publicJobs.map(j => `<option value="${j.id}">${escapeHtml(j.title)} · ${escapeHtml(j.area)}</option>`).join('');
-  list.innerHTML = state.publicJobs.length ? state.publicJobs.map(j => `
-    <article class="public-job-card">
-      <div>
-        <h4>${escapeHtml(j.title)}</h4>
-        <p class="hint">${escapeHtml(j.area)} · Peso técnico ${j.technical_weight}% / conductual ${j.soft_weight}%</p>
-        <p>${escapeHtml(j.description)}</p>
-        <div class="tags">${String(j.technical_skills || '').split(',').slice(0,7).map(s => `<span class="tag">${escapeHtml(s.trim())}</span>`).join('')}</div>
-      </div>
-      <button class="secondary" type="button" onclick="selectPublicJob(${j.id})">Postular</button>
-    </article>`).join('') : '<p class="hint">No hay puestos activos por el momento.</p>';
+  renderPublicJobCards();
+  const areaFilter = $('#publicAreaFilter');
+  if (areaFilter && !areaFilter.dataset.bound) {
+    areaFilter.addEventListener('change', renderPublicJobCards);
+    areaFilter.dataset.bound = '1';
+  }
   if (!form.dataset.bound) {
     form.addEventListener('submit', savePublicApplication);
     form.dataset.bound = '1';
@@ -157,6 +195,25 @@ async function renderPublicPortal() {
     rankForm.addEventListener('submit', lookupPublicRanking);
     rankForm.dataset.bound = '1';
   }
+}
+
+function renderPublicJobCards() {
+  const list = $('#publicJobList');
+  const area = $('#publicAreaFilter')?.value || '';
+  const rows = area ? state.publicJobs.filter(j => j.area === area) : state.publicJobs;
+  list.innerHTML = rows.length ? rows.map(j => `
+    <article class="public-job-card">
+      <div>
+        <div class="job-card-head">
+          <h4>${escapeHtml(j.title)}</h4>
+          <span class="badge primary">${escapeHtml(j.area || 'Sin área')}</span>
+        </div>
+        <p class="hint">Peso técnico ${j.technical_weight}% / conductual ${j.soft_weight}%</p>
+        <p>${escapeHtml(j.description)}</p>
+        <div class="tags">${String(j.technical_skills || '').split(',').slice(0,7).map(s => `<span class="tag">${escapeHtml(s.trim())}</span>`).join('')}</div>
+      </div>
+      <button class="secondary" type="button" onclick="selectPublicJob(${j.id})">Postular</button>
+    </article>`).join('') : '<p class="hint">No hay puestos activos para el área seleccionada.</p>';
 }
 
 window.selectPublicJob = function(jobId) {
@@ -183,7 +240,8 @@ async function savePublicApplication(event) {
       </div>
       <p><strong>Resultado inicial:</strong> ${escapeHtml(data.recommendation)}</p>
       <p class="hint">${escapeHtml(data.explanation)}</p>
-      <div class="tags">${(data.detected_skills || []).slice(0,10).map(s => `<span class="tag">${escapeHtml(s)}</span>`).join('')}</div>`;
+      <div class="tags">${(data.detected_skills || []).slice(0,10).map(s => `<span class="tag">${escapeHtml(s)}</span>`).join('')}</div>
+      ${feedbackBlock(data.improvement_feedback)}`;
     event.target.reset();
     toast('Postulación registrada correctamente.');
   } catch (err) {
@@ -211,6 +269,7 @@ async function lookupPublicRanking(event) {
               <p class="hint" style="margin:4px 0">${escapeHtml(item.area)} · ${escapeHtml(item.candidate_name)} · ${escapeHtml(item.status)}</p>
               <div class="progress"><span style="width:${item.global_score}%"></span></div>
               <p class="hint" style="margin-top:8px">Posición ${item.rank} de ${item.total_candidates} postulantes para esta oferta.</p>
+              ${feedbackBlock(item.improvement_feedback)}
             </div>
             <div style="text-align:right"><div class="score">${item.global_score}</div><span class="badge ${scoreType(item.global_score)}">${escapeHtml(item.recommendation)}</span></div>
           </article>`).join('')}
@@ -266,43 +325,117 @@ function jobOptions(selected = '') {
 
 function renderJobs() {
   const target = $('#view-jobs');
+  const isAdmin = state.user?.role === 'admin';
+  const areas = uniqueAreas(state.jobs);
   target.innerHTML = `
-    <div class="grid cols-2">
-      <form class="card" id="jobForm">
-        <h2>Nueva oferta</h2>
+    <div class="grid ${isAdmin ? 'cols-2' : ''}">
+      ${isAdmin ? `<form class="card" id="jobForm">
+        <div class="toolbar">
+          <div>
+            <p class="eyebrow" id="jobFormMode">Nueva publicación</p>
+            <h2 id="jobFormTitle">Crear puesto de trabajo</h2>
+          </div>
+          <button class="secondary hidden" id="cancelJobEdit" type="button" onclick="resetJobForm()">Cancelar edición</button>
+        </div>
+        <input type="hidden" name="id" id="jobId">
         <div class="form-grid">
           <div><label>Título del puesto</label><input name="title" placeholder="Ej. Analista de datos" required></div>
-          <div><label>Área</label><input name="area" placeholder="Ej. Tecnología" required></div>
+          <div><label>Área</label><input name="area" list="areaOptions" placeholder="Ej. Tecnología" required><datalist id="areaOptions">${['Tecnología','Recursos Humanos','Operaciones','Finanzas','Comercial','Administración','Mantenimiento','Logística', ...areas].map(a => `<option value="${escapeHtml(a)}"></option>`).join('')}</datalist></div>
           <div class="span-2"><label>Descripción</label><textarea name="description" placeholder="Resumen del perfil y responsabilidades" required></textarea></div>
           <div class="span-2"><label>Competencias técnicas requeridas</label><input name="technical_skills" value="JavaScript,React,Node.js,SQL,API REST,Git"></div>
           <div class="span-2"><label>Habilidades blandas requeridas</label><input name="soft_skills" value="Comunicación,Liderazgo,Trabajo en equipo,Resolución de conflictos,Adaptabilidad"></div>
           <div><label>Peso técnico (%)</label><input type="number" name="technical_weight" min="0" max="100" value="65"></div>
           <div><label>Peso conductual (%)</label><input type="number" name="soft_weight" min="0" max="100" value="35"></div>
+          <div class="span-2"><label>Estado</label><select name="status"><option value="Activa">Activa</option><option value="Pausada">Pausada</option><option value="Cerrada">Cerrada</option></select></div>
         </div>
-        <button class="primary" style="margin-top:16px">Guardar oferta</button>
-      </form>
+        <button class="primary" style="margin-top:16px" id="jobSubmitBtn">Guardar oferta</button>
+      </form>` : ''}
       <div class="card">
-        <div class="toolbar"><h2>Ofertas registradas</h2><span>${state.jobs.length} total</span></div>
-        <div class="table-wrap"><table><thead><tr><th>Puesto</th><th>Competencias</th><th>Peso</th><th>Estado</th></tr></thead><tbody>
-        ${state.jobs.map(j => `<tr>
-          <td><strong>${escapeHtml(j.title)}</strong><br><span class="hint">${escapeHtml(j.area)}</span></td>
-          <td>${escapeHtml(j.technical_skills)}</td>
-          <td>${j.technical_weight}% / ${j.soft_weight}%</td>
-          <td>${badge(j.status, j.status === 'Activa' ? 'success' : 'warning')}</td>
-        </tr>`).join('')}
+        <div class="toolbar">
+          <div><h2>Ofertas publicadas</h2><p class="hint">${areas.length} área(s) clasificadas · ${state.jobs.length} total</p></div>
+          <select id="jobAreaFilter" class="compact-select"><option value="">Todas las áreas</option>${areas.map(area => `<option value="${escapeHtml(area)}">${escapeHtml(area)}</option>`).join('')}</select>
+        </div>
+        <div class="table-wrap"><table><thead><tr><th>Puesto</th><th>Área</th><th>Competencias</th><th>Peso</th><th>Estado</th>${isAdmin ? '<th>Acciones</th>' : ''}</tr></thead><tbody id="jobRows">
+        ${jobRows(state.jobs, isAdmin)}
         </tbody></table></div>
       </div>
     </div>`;
-  $('#jobForm').addEventListener('submit', saveJob);
+  if (isAdmin) $('#jobForm').addEventListener('submit', saveJob);
+  $('#jobAreaFilter').addEventListener('change', event => {
+    const area = event.target.value;
+    const rows = area ? state.jobs.filter(j => j.area === area) : state.jobs;
+    $('#jobRows').innerHTML = jobRows(rows, isAdmin);
+  });
+}
+
+function jobRows(rows, isAdmin) {
+  if (!rows.length) return `<tr><td colspan="${isAdmin ? 6 : 5}"><p class="hint">No hay ofertas registradas para mostrar.</p></td></tr>`;
+  return rows.map(j => `<tr>
+    <td><strong>${escapeHtml(j.title)}</strong><br><span class="hint">${escapeHtml(j.description || '').slice(0, 90)}${String(j.description || '').length > 90 ? '...' : ''}</span></td>
+    <td>${badge(escapeHtml(j.area || 'Sin área'), 'primary')}</td>
+    <td>${escapeHtml(j.technical_skills)}</td>
+    <td>${j.technical_weight}% / ${j.soft_weight}%</td>
+    <td>${badge(j.status, j.status === 'Activa' ? 'success' : 'warning')}</td>
+    ${isAdmin ? `<td><div class="action-row"><button class="secondary" onclick="editJob(${j.id})">Editar</button><button class="danger" onclick="deleteJob(${j.id})">Eliminar</button></div></td>` : ''}
+  </tr>`).join('');
+}
+
+function fillJobForm(job) {
+  const form = $('#jobForm');
+  if (!form) return;
+  form.elements.id.value = job.id || '';
+  form.elements.title.value = job.title || '';
+  form.elements.area.value = job.area || '';
+  form.elements.description.value = job.description || '';
+  form.elements.technical_skills.value = job.technical_skills || '';
+  form.elements.soft_skills.value = job.soft_skills || '';
+  form.elements.technical_weight.value = job.technical_weight || 65;
+  form.elements.soft_weight.value = job.soft_weight || 35;
+  form.elements.status.value = job.status || 'Activa';
+  $('#jobFormMode').textContent = job.id ? 'Edición de publicación' : 'Nueva publicación';
+  $('#jobFormTitle').textContent = job.id ? 'Editar puesto de trabajo' : 'Crear puesto de trabajo';
+  $('#jobSubmitBtn').textContent = job.id ? 'Actualizar oferta' : 'Guardar oferta';
+  $('#cancelJobEdit').classList.toggle('hidden', !job.id);
+  form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+window.editJob = function(id) {
+  const job = state.jobs.find(j => Number(j.id) === Number(id));
+  if (!job) return toast('No se encontró la oferta seleccionada.');
+  fillJobForm(job);
+}
+
+window.resetJobForm = function() {
+  fillJobForm({
+    technical_skills: 'JavaScript,React,Node.js,SQL,API REST,Git',
+    soft_skills: 'Comunicación,Liderazgo,Trabajo en equipo,Resolución de conflictos,Adaptabilidad',
+    technical_weight: 65,
+    soft_weight: 35,
+    status: 'Activa'
+  });
+}
+
+window.deleteJob = async function(id) {
+  const job = state.jobs.find(j => Number(j.id) === Number(id));
+  const linked = state.candidates.filter(c => Number(c.job_id) === Number(id)).length;
+  const detail = linked ? ` También se eliminarán ${linked} postulación(es) vinculada(s).` : '';
+  if (!confirm(`¿Eliminar definitivamente la oferta "${job?.title || ''}"?${detail}`)) return;
+  await api(`/api/jobs/${id}`, { method: 'DELETE' });
+  toast('Oferta eliminada correctamente.');
+  await loadData();
+  renderJobs();
 }
 
 async function saveJob(event) {
   event.preventDefault();
   const payload = Object.fromEntries(new FormData(event.target));
+  const id = payload.id;
+  delete payload.id;
   payload.technical_weight = Number(payload.technical_weight || 65);
   payload.soft_weight = Number(payload.soft_weight || 35);
-  await api('/api/jobs', { method: 'POST', body: JSON.stringify(payload) });
-  toast('Oferta registrada correctamente.');
+  await api(id ? `/api/jobs/${id}` : '/api/jobs', { method: id ? 'PUT' : 'POST', body: JSON.stringify(payload) });
+  toast(id ? 'Oferta actualizada correctamente.' : 'Oferta registrada correctamente.');
+  event.target.reset();
   await loadData();
   renderJobs();
 }
@@ -378,6 +511,7 @@ window.openCandidate = async function(id) {
       <div class="card"><h3>Información</h3><p><strong>Oferta:</strong> ${escapeHtml(c.job_title)}</p><p><strong>DNI:</strong> ${escapeHtml(c.dni || 'No registrado')}</p><p><strong>Correo:</strong> ${escapeHtml(c.email || 'No detectado')}</p><p><strong>Teléfono:</strong> ${escapeHtml(c.phone || 'No detectado')}</p><p><strong>Estado:</strong> ${escapeHtml(c.status)}</p></div>
       <div class="card"><h3>Recomendación IA</h3><p>${badge(c.recommendation, scoreType(c.global_score))}</p><p class="hint">${escapeHtml(c.explanation)}</p><div class="tags">${(c.detected_skills || []).map(s => `<span class="tag">${escapeHtml(s)}</span>`).join('')}</div></div>
     </div>
+    ${feedbackBlock(c.improvement_feedback)}
     <form id="editCandidateForm" class="card" style="margin-top:18px">
       <h3>Actualizar entrevista o CV</h3>
       <input type="hidden" name="job_id" value="${c.job_id}">

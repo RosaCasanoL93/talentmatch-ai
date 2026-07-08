@@ -123,7 +123,13 @@ function adminOnly(req, res, next) { if (req.user.role !== 'admin') return res.s
 function jobOf(candidate) { return db.jobs.find(j => Number(j.id) === Number(candidate.job_id)); }
 function decorateCandidate(candidate) {
   const job = jobOf(candidate) || {};
-  return { ...clone(candidate), job_title: job.title || '', job_area: job.area || '', detected_skills: Array.isArray(candidate.detected_skills) ? candidate.detected_skills : [] };
+  return {
+    ...clone(candidate),
+    job_title: job.title || '',
+    job_area: job.area || '',
+    detected_skills: Array.isArray(candidate.detected_skills) ? candidate.detected_skills : [],
+    improvement_feedback: candidate.improvement_feedback || buildImprovementFeedback(candidate, job)
+  };
 }
 
 function analyzeCv(cvText, job) {
@@ -156,6 +162,56 @@ function analyzeInterview(text) {
   return { softScore: clamp(lengthScore + dimensionScore + structureScore) };
 }
 
+function softSkillIndicators(skill) {
+  const key = normalize(skill);
+  const catalog = {
+    'comunicacion': ['comunique','comunicacion','escuchar','claridad','explicar','presentar','feedback','retroalimentacion'],
+    'liderazgo': ['lider','liderazgo','coordine','motivar','guiar','decision','priorizar','responsable'],
+    'trabajo en equipo': ['equipo','colaborar','apoyar','integrar','compañero','companero','coordinacion','scrum'],
+    'resolucion de conflictos': ['conflicto','problema','resolver','negociar','acuerdo','solucion','riesgo','impedimento'],
+    'adaptabilidad': ['adaptar','cambio','aprendi','mejora','flexible','nuevo','reto'],
+    'responsabilidad': ['responsable','cumplimiento','puntual','compromiso','seguimiento','entrega'],
+    'pensamiento critico': ['analice','analisis','criterio','priorice','evalue','causa','impacto'],
+    'orientacion a resultados': ['resultado','objetivo','meta','indicador','logro','mejora','cumpli']
+  };
+  return catalog[key] || [key];
+}
+
+function buildImprovementFeedback(candidate, job) {
+  const requiredTech = asArray(job.technical_skills);
+  const detected = Array.isArray(candidate.detected_skills) ? candidate.detected_skills : [];
+  const missingTechnical = requiredTech
+    .filter(skill => !detected.some(found => normalize(found) === normalize(skill)))
+    .slice(0, 6);
+
+  const profileText = normalize(`${candidate.cv_text || ''} ${candidate.interview_text || ''}`);
+  const requiredSoft = asArray(job.soft_skills);
+  const missingSoft = requiredSoft
+    .filter(skill => !softSkillIndicators(skill).some(word => profileText.includes(normalize(word))))
+    .slice(0, 6);
+
+  const technicalSuggestions = missingTechnical.length
+    ? missingTechnical.map(skill => `Reforzar ${skill} con cursos, proyectos prácticos o evidencias aplicadas al puesto.`)
+    : ['Mantener actualizado el portafolio técnico y documentar logros medibles vinculados al puesto.'];
+
+  const softSuggestions = missingSoft.length
+    ? missingSoft.map(skill => `Practicar ${skill} mediante ejemplos STAR: situación, tarea, acción y resultado.`)
+    : ['Fortalecer la entrevista con ejemplos concretos de impacto, colaboración y aprendizaje.'];
+
+  const summary = [
+    missingTechnical.length ? `Competencias técnicas por reforzar: ${missingTechnical.join(', ')}.` : 'El perfil cubre las competencias técnicas principales detectadas para la oferta.',
+    missingSoft.length ? `Habilidades blandas por evidenciar mejor: ${missingSoft.join(', ')}.` : 'Las habilidades blandas principales fueron evidenciadas de forma aceptable.'
+  ].join(' ');
+
+  return {
+    summary,
+    technical_to_improve: missingTechnical,
+    soft_to_improve: missingSoft,
+    technical_suggestions: technicalSuggestions,
+    soft_suggestions: softSuggestions
+  };
+}
+
 function recommendation(globalScore) {
   if (globalScore >= 85) return 'Altamente recomendado';
   if (globalScore >= 72) return 'Recomendado';
@@ -179,6 +235,7 @@ function recalcCandidate(candidateId, userId = null) {
   candidate.global_score = globalScore;
   candidate.recommendation = recommendation(globalScore);
   candidate.explanation = `Coincidencias técnicas detectadas: ${cvAnalysis.detectedSkills.length ? cvAnalysis.detectedSkills.slice(0, 8).join(', ') : 'sin coincidencias técnicas suficientes'}. Se identificó ${cvAnalysis.yearsExperience ? cvAnalysis.yearsExperience + ' años de experiencia declarada' : 'experiencia no especificada'}. El puntaje técnico fue ${cvAnalysis.technicalScore}/100 y el puntaje conductual fue ${softAnalysis.softScore}/100. La recomendación pondera ${job.technical_weight}% competencias técnicas y ${job.soft_weight}% habilidades blandas.`;
+  candidate.improvement_feedback = buildImprovementFeedback(candidate, job);
   candidate.updated_at = now();
   saveDb();
   audit(userId, 'ANALYZE_CANDIDATE', 'candidate', candidate.id, { globalScore, recommendation: candidate.recommendation });
@@ -300,6 +357,7 @@ app.post('/api/public/apply', upload.single('cv_file'), async (req, res) => {
     recommendation: analyzed.recommendation,
     detected_skills: analyzed.detected_skills,
     explanation: analyzed.explanation,
+    improvement_feedback: analyzed.improvement_feedback,
     status: analyzed.status,
     message: 'Postulación recibida y analizada correctamente.'
   });
@@ -331,6 +389,7 @@ app.get('/api/public/ranking', (req, res) => {
       technical_score: appCandidate.technical_score,
       soft_score: appCandidate.soft_score,
       recommendation: appCandidate.recommendation,
+      improvement_feedback: appCandidate.improvement_feedback,
       status: appCandidate.status,
       applied_at: appCandidate.created_at
     };
@@ -345,14 +404,14 @@ app.get('/api/jobs/:id', auth, (req, res) => {
   if (!job) return res.status(404).json({ error: 'Oferta no encontrada.' });
   res.json(clone(job));
 });
-app.post('/api/jobs', auth, (req, res) => {
+app.post('/api/jobs', auth, adminOnly, (req, res) => {
   const { title, area, description, technical_skills, soft_skills, technical_weight, soft_weight, status } = req.body;
   if (!title || !area || !description) return res.status(400).json({ error: 'Título, área y descripción son obligatorios.' });
   const job = { id: nextId('jobs'), title, area, description, technical_skills: technical_skills || '', soft_skills: soft_skills || '', technical_weight: Number(technical_weight || 65), soft_weight: Number(soft_weight || 35), status: status || 'Activa', created_by: req.user.id, created_at: now(), updated_at: now() };
   db.jobs.push(job); saveDb(); audit(req.user.id, 'CREATE_JOB', 'job', job.id, { title });
   res.status(201).json(clone(job));
 });
-app.put('/api/jobs/:id', auth, (req, res) => {
+app.put('/api/jobs/:id', auth, adminOnly, (req, res) => {
   const job = db.jobs.find(j => Number(j.id) === Number(req.params.id));
   if (!job) return res.status(404).json({ error: 'Oferta no encontrada.' });
   Object.assign(job, ['title','area','description','technical_skills','soft_skills','technical_weight','soft_weight','status'].reduce((acc, key) => {
